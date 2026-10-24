@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抓小球 | 图标标本馆的课上游乐场</title>
+    <style>
+        :root {
+            --wl-bg: #FCF6DC;
+            --wl-bar: #1F2330;
+            --wl-ink: #1F2330;
+            --wl-blue: #1E66F5;
+            --wl-blue-deep: #0F4CC0;
+            --wl-red: #E2483D;
+            --wl-gold: #E8A13A;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body.wl_body {
+            background: var(--wl-bg);
+            height: 100vh;
+            overflow: hidden;
+            font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+            color: var(--wl-ink);
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* ===== 顶部信息栏 ===== */
+        header.wl_topbar {
+            height: 56px;
+            padding: 0 16px;
+            background: var(--wl-bar);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            position: relative;
+            z-index: 20;
+        }
+
+        .wl_stat {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .wl_stat small {
+            font-size: 12px;
+            opacity: .6;
+        }
+
+        .wl_stat b {
+            font-size: 24px;
+            font-weight: 700;
+            min-width: 2ch;
+        }
+
+        #wl_score.wl_minus {
+            color: #FF9C93;
+        }
+
+        #wl_time.wl_lowtime {
+            color: #FF6B5E;
+            animation: wl_blink 1s steps(2) infinite;
+        }
+
+        @keyframes wl_blink {
+            50% {
+                opacity: .35;
+            }
+        }
+
+        .wl_spacer {
+            flex: 1;
+        }
+
+        header.wl_topbar a.wl_home {
+            color: #fff;
+            font-size: 13px;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(255, 255, 255, .5);
+            padding-bottom: 1px;
+        }
+
+        header.wl_topbar a.wl_home:hover {
+            border-bottom-color: #fff;
+        }
+
+        button.wl_mute {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, .4);
+            color: #fff;
+            font: inherit;
+            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button.wl_mute:hover {
+            border-color: #fff;
+        }
+
+        /* ===== 小球 ===== */
+        div.wl_ball {
+            position: absolute;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 32% 30%, #7FB0FF 0%, var(--wl-blue) 55%, var(--wl-blue-deep) 100%);
+            box-shadow: 0 6px 14px rgba(30, 102, 245, .35);
+            cursor: pointer;
+            z-index: 10;
+            transition: width .3s ease, height .3s ease;
+            will-change: left, top;
+            display: none;
+        }
+
+        div.wl_ball.wl_show {
+            display: block;
+            animation: wl_popin .18s ease-out;
+        }
+
+        @keyframes wl_popin {
+            from {
+                transform: scale(.3);
+            }
+
+            to {
+                transform: scale(1);
+            }
+        }
+
+        /* ===== 遮罩层 ===== */
+        .wl_overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+        }
+
+        .wl_overlay.wl_on {
+            display: flex;
+        }
+
+        .wl_card {
+            background: #fff;
+            border: 2px solid var(--wl-ink);
+            box-shadow: 10px 10px 0 rgba(31, 35, 48, .16);
+            border-radius: 14px;
+            padding: 36px 44px;
+            text-align: center;
+            max-width: min(88vw, 420px);
+        }
+
+        .wl_card h1 {
+            font-size: 30px;
+            margin-bottom: 10px;
+        }
+
+        .wl_card p.wl_rule {
+            font-size: 14px;
+            line-height: 1.9;
+            opacity: .75;
+            margin-bottom: 22px;
+        }
+
+        button.wl_bigbtn {
+            font: inherit;
+            font-size: 19px;
+            font-weight: 700;
+            color: #fff;
+            background: var(--wl-blue);
+            border: none;
+            border-radius: 10px;
+            padding: 13px 46px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 var(--wl-blue-deep);
+            transition: transform .12s ease, box-shadow .12s ease;
+        }
+
+        button.wl_bigbtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 var(--wl-blue-deep);
+        }
+
+        button.wl_bigbtn:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 var(--wl-blue-deep);
+        }
+
+        button.wl_bigbtn:focus-visible,
+        button.wl_mute:focus-visible {
+            outline: 3px solid var(--wl-gold);
+            outline-offset: 3px;
+        }
+
+        /* 结算面板 */
+        #wl_finalScore {
+            font-size: 56px;
+            font-weight: 700;
+            color: var(--wl-blue);
+            line-height: 1.2;
+        }
+
+        #wl_finalScore.wl_minus {
+            color: var(--wl-red);
+        }
+
+        p.wl_rating {
+            font-size: 18px;
+            margin: 6px 0 2px;
+        }
+
+        p.wl_substat {
+            font-size: 13px;
+            opacity: .65;
+            margin-bottom: 20px;
+        }
+
+        span.wl_newbest {
+            display: none;
+            margin: 4px 0 8px;
+            color: var(--wl-gold);
+            font-weight: 700;
+            font-size: 15px;
+        }
+
+        span.wl_newbest.wl_on {
+            display: block;
+        }
+
+        /* 暂停遮罩 */
+        #wl_overlay_pause {
+            background: rgba(252, 246, 220, .72);
+            cursor: pointer;
+        }
+
+        #wl_overlay_pause p {
+            font-size: 22px;
+            font-weight: 700;
+            background: #fff;
+            border: 2px solid var(--wl-ink);
+            border-radius: 12px;
+            padding: 18px 34px;
+            box-shadow: 8px 8px 0 rgba(31, 35, 48, .16);
+        }
+
+        /* ===== 喝彩词 / 漂字 / 涟漪 ===== */
+        div.wl_cheer {
+            position: fixed;
+            left: 50%;
+            top: 42%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(36px, 8vw, 72px);
+            font-weight: 900;
+            color: var(--wl-blue);
+            text-shadow: 3px 3px 0 rgba(255, 255, 255, .9);
+            pointer-events: none;
+            z-index: 40;
+            animation: wl_cheerpop 1.1s ease forwards;
+        }
+
+        @keyframes wl_cheerpop {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(.4);
+            }
+
+            22% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.15);
+            }
+
+            38% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            75% {
+                opacity: 1;
+                transform: translate(-50%, -70%) scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -95%) scale(1);
+            }
+        }
+
+        span.wl_float {
+            position: absolute;
+            font-size: 20px;
+            font-weight: 700;
+            pointer-events: none;
+            z-index: 15;
+            animation: wl_floatup .7s ease-out forwards;
+        }
+
+        span.wl_float.wl_good {
+            color: var(--wl-blue);
+        }
+
+        span.wl_float.wl_bad {
+            color: var(--wl-red);
+        }
+
+        @keyframes wl_floatup {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-56px);
+            }
+        }
+
+        span.wl_ripple {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 5;
+            border: 3px solid;
+            animation: wl_rip .45s ease-out forwards;
+        }
+
+        span.wl_ripple.wl_good {
+            border-color: rgba(30, 102, 245, .55);
+        }
+
+        span.wl_ripple.wl_bad {
+            border-color: rgba(226, 72, 61, .5);
+        }
+
+        @keyframes wl_rip {
+            from {
+                opacity: 1;
+                transform: scale(.2);
+            }
+
+            to {
+                opacity: 0;
+                transform: scale(1);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            div.wl_cheer,
+            span.wl_float,
+            span.wl_ripple {
+                display: none;
+            }
+
+            #wl_time.wl_lowtime {
+                animation: none;
+            }
+        }
+    </style>
+</head>
+
+<body class="wl_body">
+    <header class="wl_topbar" id="wl_topbar">
+        <span class="wl_stat"><small>分数</small><b id="wl_score">0</b></span>
+        <span class="wl_stat"><small>时间</small><b id="wl_time">2:00</b></span>
+        <span class="wl_stat"><small>连击</small><b id="wl_combo">0</b></span>
+        <span class="wl_stat"><small>最高</small><b id="wl_best">0</b></span>
+        <span class="wl_spacer"></span>
+        <a class="wl_home" href="index.html">返回首页</a>
+        <button class="wl_mute" id="wl_muteBtn" type="button">音效：开</button>
+    </header>
+
+    <div class="wl_ball" id="wl_ball"></div>
+
+    <!-- 开始遮罩 -->
+    <div class="wl_overlay wl_on" id="wl_overlay_start">
+        <div class="wl_card">
+            <h1>抓小球</h1>
+            <p class="wl_rule">
+                限时 2 分钟，蓝色小球会到处漂移。<br>
+                点中小球 <b style="color:var(--wl-blue)">+2</b> 分，
+                点到空白 <b style="color:var(--wl-red)">−1</b> 分。<br>
+                每 30 秒球会更快更小；连续 10 次命中会得到喝彩。
+            </p>
+            <button class="wl_bigbtn" id="wl_startBtn" type="button">开始游戏</button>
+        </div>
+    </div>
+
+    <!-- 暂停遮罩 -->
+    <div class="wl_overlay" id="wl_overlay_pause">
+        <p>已暂停，点击继续</p>
+    </div>
+
+    <!-- 结算遮罩 -->
+    <div class="wl_overlay" id="wl_overlay_over">
+        <div class="wl_card">
+            <p style="font-size:14px;opacity:.6">时间到，最终得分</p>
+            <div id="wl_finalScore">0</div>
+            <p class="wl_rating" id="wl_rating"></p>
+            <span class="wl_newbest" id="wl_newbest">★ 新纪录</span>
+            <p class="wl_substat" id="wl_substat"></p>
+            <button class="wl_bigbtn" id="wl_againBtn" type="button">再来一局</button>
+        </div>
+    </div>
+
+    <script>
+        /* ===== 常量与状态 ===== */
+        const wl_TIERS = [
+            { speed: 120, size: 52 },
+            { speed: 150, size: 44 },
+            { speed: 180, size: 38 },
+            { speed: 210, size: 32 }
+        ];
+        const wl_DURATION = 120000;          /* 2 分钟，毫秒 */
+        const wl_WORDS = ['完美！', '太棒了！', '厉害！', '无懈可击！', '超神！'];
+        const wl_RATINGS = [
+            { min: 100, text: '小球猎手' },
+            { min: 50, text: '身手不凡' },
+            { min: 0, text: '渐入佳境' },
+            { min: -Infinity, text: '小球在嘲笑你' }
+        ];
+
+        const wl_ball = document.getElementById('wl_ball');
+        const wl_topbar = document.getElementById('wl_topbar');
+        const wl_scoreEl = document.getElementById('wl_score');
+        const wl_timeEl = document.getElementById('wl_time');
+        const wl_comboEl = document.getElementById('wl_combo');
+        const wl_bestEl = document.getElementById('wl_best');
+        const wl_muteBtn = document.getElementById('wl_muteBtn');
+        const wl_startOverlay = document.getElementById('wl_overlay_start');
+        const wl_pauseOverlay = document.getElementById('wl_overlay_pause');
+        const wl_overOverlay = document.getElementById('wl_overlay_over');
+
+        let wl_state = 'idle';               /* idle | running | paused | over */
+        let wl_score = 0;
+        let wl_combo = 0;
+        let wl_comboMax = 0;
+        let wl_endAt = 0;                    /* 结束时间戳 */
+        let wl_remainingPaused = 0;          /* 暂停时剩余毫秒 */
+        let wl_tier = 0;
+        let wl_rafId = 0;
+        let wl_lastT = 0;
+        let wl_wordIndex = 0;
+        let wl_size = 52;
+        let wl_speed = 120;
+        let wl_pos = { x: 100, y: 120 };
+        let wl_vel = { vx: 90, vy: 70 };
+        let wl_best = parseInt(localStorage.getItem('wl_bestScore') || '0', 10);
+        let wl_muted = localStorage.getItem('wl_muted') === '1';
+        wl_bestEl.textContent = wl_best;
+
+        /* ===== 音效：Web Audio 合成 ===== */
+        let wl_ctx = null;
+        function wl_beep(wl_freq, wl_dur, wl_type, wl_vol) {
+            if (wl_muted) return;
+            if (!wl_ctx) {
+                const W = window.AudioContext || window.webkitAudioContext;
+                if (!W) return;
+                wl_ctx = new W();
+            }
+            if (wl_ctx.state === 'suspended') wl_ctx.resume();
+            const wl_o = wl_ctx.createOscillator();
+            const wl_g = wl_ctx.createGain();
+            wl_o.type = wl_type || 'sine';
+            wl_o.frequency.value = wl_freq;
+            wl_g.gain.setValueAtTime(wl_vol || 0.12, wl_ctx.currentTime);
+            wl_g.gain.exponentialRampToValueAtTime(0.0001, wl_ctx.currentTime + wl_dur);
+            wl_o.connect(wl_g);
+            wl_g.connect(wl_ctx.destination);
+            wl_o.start();
+            wl_o.stop(wl_ctx.currentTime + wl_dur);
+        }
+        function wl_toggleMute() {
+            wl_muted = !wl_muted;
+            localStorage.setItem('wl_muted', wl_muted ? '1' : '0');
+            wl_muteBtn.textContent = wl_muted ? '音效：关' : '音效：开';
+        }
+        wl_muteBtn.textContent = wl_muted ? '音效：关' : '音效：开';
+        wl_muteBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            wl_toggleMute();
+        });
+
+        /* ===== 工具 ===== */
+        function wl_fmt(wl_ms) {
+            const wl_s = Math.max(0, Math.ceil(wl_ms / 1000));
+            return Math.floor(wl_s / 60) + ':' + String(wl_s % 60).padStart(2, '0');
+        }
+        function wl_updateHUD(wl_msLeft) {
+            wl_scoreEl.textContent = wl_score;
+            wl_scoreEl.classList.toggle('wl_minus', wl_score < 0);
+            wl_comboEl.textContent = wl_combo;
+            wl_timeEl.textContent = wl_fmt(wl_msLeft);
+            wl_timeEl.classList.toggle('wl_lowtime', wl_msLeft <= 10000);
+        }
+        function wl_setTier(wl_i) {
+            if (wl_i === wl_tier) return;
+            const wl_growth = wl_i > wl_tier ? wl_i - wl_tier : 0;
+            wl_tier = wl_i;
+            wl_speed = wl_TIERS[wl_i].speed;
+            /* 保持方向，仅提升速率 */
+            const wl_norm = Math.hypot(wl_vel.vx, wl_vel.vy) || 1;
+            wl_vel.vx = wl_vel.vx / wl_norm * wl_speed;
+            wl_vel.vy = wl_vel.vy / wl_norm * wl_speed;
+            wl_size = wl_TIERS[wl_i].size;
+            wl_ball.style.width = wl_size + 'px';
+            wl_ball.style.height = wl_size + 'px';
+        }
+        function wl_randomPos() {
+            const wl_maxX = window.innerWidth - wl_size - 8;
+            const wl_maxY = window.innerHeight - wl_size - 8;
+            const wl_minY = wl_topbar.offsetHeight + 10;
+            return {
+                x: Math.floor(Math.random() * Math.max(1, wl_maxX - 8)) + 8,
+                y: Math.floor(Math.random() * Math.max(1, wl_maxY - wl_minY)) + wl_minY
+            };
+        }
+        function wl_spawnBall() {
+            wl_pos = wl_randomPos();
+            const wl_ang = Math.random() * Math.PI * 2;
+            wl_vel.vx = Math.cos(wl_ang) * wl_speed;
+            wl_vel.vy = Math.sin(wl_ang) * wl_speed;
+            wl_ball.style.left = wl_pos.x + 'px';
+            wl_ball.style.top = wl_pos.y + 'px';
+            wl_ball.classList.remove('wl_show');
+            void wl_ball.offsetWidth;    /* 重新触发弹入动画 */
+            wl_ball.classList.add('wl_show');
+        }
+
+        /* ===== 特效 ===== */
+        function wl_ripple(wl_x, wl_y, wl_good) {
+            const wl_r = document.createElement('span');
+            wl_r.className = 'wl_ripple ' + (wl_good ? 'wl_good' : 'wl_bad');
+            const wl_d = 56;
+            wl_r.style.width = wl_d + 'px';
+            wl_r.style.height = wl_d + 'px';
+            wl_r.style.left = (wl_x - wl_d / 2) + 'px';
+            wl_r.style.top = (wl_y - wl_d / 2) + 'px';
+            document.body.appendChild(wl_r);
+            wl_r.addEventListener('animationend', function () { wl_r.remove(); });
+        }
+        function wl_float(wl_x, wl_y, wl_text, wl_good) {
+            const wl_f = document.createElement('span');
+            wl_f.className = 'wl_float ' + (wl_good ? 'wl_good' : 'wl_bad');
+            wl_f.textContent = wl_text;
+            wl_f.style.left = wl_x + 'px';
+            wl_f.style.top = wl_y + 'px';
+            document.body.appendChild(wl_f);
+            wl_f.addEventListener('animationend', function () { wl_f.remove(); });
+        }
+        function wl_cheer() {
+            const wl_c = document.createElement('div');
+            wl_c.className = 'wl_cheer';
+            wl_c.textContent = wl_WORDS[wl_wordIndex % wl_WORDS.length];
+            wl_wordIndex++;
+            document.body.appendChild(wl_c);
+            wl_c.addEventListener('animationend', function () { wl_c.remove(); });
+            wl_beep(880, 0.12, 'sine', 0.14);
+            setTimeout(function () { wl_beep(1320, 0.18, 'sine', 0.14); }, 110);
+        }
+
+        /* ===== 计分 ===== */
+        function wl_syncScore() {
+            wl_scoreEl.textContent = wl_score;
+            wl_scoreEl.classList.toggle('wl_minus', wl_score < 0);
+            wl_comboEl.textContent = wl_combo;
+        }
+        function wl_addScore(wl_n) {
+            wl_score += wl_n;
+            wl_syncScore();              /* 计分即时上屏，不等待下一帧 */
+        }
+        function wl_hitBall(e) {
+            e.stopPropagation();
+            if (wl_state !== 'running') return;
+            wl_addScore(2);
+            wl_combo++;
+            if (wl_combo > wl_comboMax) wl_comboMax = wl_combo;
+            if (wl_combo % 10 === 0) wl_cheer();
+            else wl_beep(660, 0.08, 'triangle', 0.1);
+            wl_syncScore();
+            wl_ripple(wl_pos.x + wl_size / 2, wl_pos.y + wl_size / 2, true);
+            wl_float(wl_pos.x + wl_size / 2 - 14, wl_pos.y - 6, '+2', true);
+            wl_spawnBall();                  /* 小球消失，随即刷新到新随机位置 */
+        }
+        function wl_hitBlank(e) {
+            if (wl_state !== 'running') return;
+            /* 顶栏、按钮、链接与遮罩上的点击不计入 */
+            if (e.target.closest('header.wl_topbar, button, a, .wl_overlay')) return;
+            wl_addScore(-1);
+            wl_combo = 0;                    /* 扣分清零连击 */
+            wl_syncScore();
+            wl_beep(180, 0.12, 'square', 0.08);
+            wl_ripple(e.clientX, e.clientY, false);
+            wl_float(e.clientX - 10, e.clientY - 26, '−1', false);
+        }
+        wl_ball.addEventListener('pointerdown', wl_hitBall);
+        document.addEventListener('pointerdown', wl_hitBlank);
+
+        /* ===== 主循环：漂移 + 倒计时 + 难度档位 ===== */
+        function wl_loop(wl_t) {
+            if (wl_state !== 'running') return;
+            const wl_dt = Math.min(0.05, (wl_t - wl_lastT) / 1000 || 0.016);
+            wl_lastT = wl_t;
+
+            /* 漂移与反弹 */
+            wl_pos.x += wl_vel.vx * wl_dt;
+            wl_pos.y += wl_vel.vy * wl_dt;
+            const wl_maxX = window.innerWidth - wl_size;
+            const wl_maxY = window.innerHeight - wl_size;
+            const wl_minY = wl_topbar.offsetHeight;
+            if (wl_pos.x <= 0) { wl_pos.x = 0; wl_vel.vx = Math.abs(wl_vel.vx); }
+            if (wl_pos.x >= wl_maxX) { wl_pos.x = wl_maxX; wl_vel.vx = -Math.abs(wl_vel.vx); }
+            if (wl_pos.y <= wl_minY) { wl_pos.y = wl_minY; wl_vel.vy = Math.abs(wl_vel.vy); }
+            if (wl_pos.y >= wl_maxY) { wl_pos.y = wl_maxY; wl_vel.vy = -Math.abs(wl_vel.vy); }
+            wl_ball.style.left = wl_pos.x + 'px';
+            wl_ball.style.top = wl_pos.y + 'px';
+
+            /* 倒计时与档位 */
+            const wl_left = wl_endAt - performance.now();
+            if (wl_left <= 0) { wl_endGame(); return; }
+            wl_setTier(wl_left > 90000 ? 0 : wl_left > 60000 ? 1 : wl_left > 30000 ? 2 : 3);
+            wl_updateHUD(wl_left);
+            wl_rafId = requestAnimationFrame(wl_loop);
+        }
+
+        /* ===== 开始 / 结束 / 重开 / 暂停 ===== */
+        function wl_startGame() {
+            wl_score = 0;
+            wl_combo = 0;
+            wl_comboMax = 0;
+            wl_wordIndex = 0;
+            wl_tier = -1;
+            wl_size = wl_TIERS[0].size;
+            wl_speed = wl_TIERS[0].speed;
+            wl_ball.style.width = wl_size + 'px';
+            wl_ball.style.height = wl_size + 'px';
+            wl_state = 'running';
+            wl_endAt = performance.now() + wl_DURATION;
+            wl_lastT = performance.now();
+            wl_startOverlay.classList.remove('wl_on');
+            wl_overOverlay.classList.remove('wl_on');
+            wl_spawnBall();
+            wl_updateHUD(wl_DURATION);
+            wl_rafId = requestAnimationFrame(wl_loop);
+        }
+        function wl_endGame() {
+            wl_state = 'over';
+            cancelAnimationFrame(wl_rafId);
+            wl_ball.classList.remove('wl_show');
+            const wl_isNew = wl_score > wl_best;
+            if (wl_isNew) {
+                wl_best = wl_score;
+                localStorage.setItem('wl_bestScore', String(wl_best));
+                wl_bestEl.textContent = wl_best;
+            }
+            document.getElementById('wl_finalScore').textContent = wl_score;
+            document.getElementById('wl_finalScore').classList.toggle('wl_minus', wl_score < 0);
+            const wl_r = wl_RATINGS.find(function (w) { return wl_score >= w.min; });
+            document.getElementById('wl_rating').textContent = '「' + wl_r.text + '」';
+            document.getElementById('wl_newbest').classList.toggle('wl_on', wl_isNew);
+            document.getElementById('wl_substat').textContent =
+                '连击峰值 ' + wl_comboMax + ' ｜ 历史最高 ' + wl_best;
+            wl_overOverlay.classList.add('wl_on');
+            wl_beep(520, 0.4, 'sawtooth', 0.1);
+        }
+        function wl_pause() {
+            if (wl_state !== 'running') return;
+            wl_state = 'paused';
+            wl_remainingPaused = wl_endAt - performance.now();
+            cancelAnimationFrame(wl_rafId);
+            wl_pauseOverlay.classList.add('wl_on');
+        }
+        function wl_resume() {
+            if (wl_state !== 'paused') return;
+            wl_state = 'running';
+            wl_endAt = performance.now() + wl_remainingPaused;
+            wl_lastT = performance.now();
+            wl_pauseOverlay.classList.remove('wl_on');
+            wl_rafId = requestAnimationFrame(wl_loop);
+        }
+
+        document.getElementById('wl_startBtn').addEventListener('click', function () {
+            wl_beep(660, 0.1, 'triangle', 0.1);
+            wl_startGame();
+        });
+        document.getElementById('wl_againBtn').addEventListener('click', function () {
+            wl_beep(660, 0.1, 'triangle', 0.1);
+            wl_startGame();
+        });
+        wl_pauseOverlay.addEventListener('pointerdown', wl_resume);
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) wl_pause();
+        });
+        window.addEventListener('resize', function () {
+            if (wl_state !== 'running') return;
+            const wl_maxX = window.innerWidth - wl_size;
+            const wl_maxY = window.innerHeight - wl_size;
+            const wl_minY = wl_topbar.offsetHeight;
+            wl_pos.x = Math.min(Math.max(wl_pos.x, 0), Math.max(0, wl_maxX));
+            wl_pos.y = Math.min(Math.max(wl_pos.y, wl_minY), Math.max(wl_minY, wl_maxY));
+        });
+    </script>
+</body>
+
+</html>
