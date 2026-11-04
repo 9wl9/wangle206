@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<!--
+  作者：王乐
+  建立时间：2026-11-04 14:04:11
+  使用模型：GLM-5.3-Flash
+  功能名称：旅游投诉选项卡（最新投诉 / 官方回应 / 追踪调查）
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>旅游投诉 · 选项卡</title>
+  <style>
+    body {
+      font-family: SimSun, "宋体", serif;
+      background: #fff;
+      margin: 0;
+      padding: 40px 0;
+      display: flex;
+      justify-content: center;
+    }
+    .wl_page { width: 100%; max-width: 360px; padding: 0 10px; }
+
+    /* 选项卡整体容器 */
+    .wl_tabs { background: #fff; }
+
+    /* 顶部选项卡标题栏：底部整条浅蓝色下划线 */
+    /* 左右内边距让蓝条在首尾标签红框外侧各露出一小截 */
+    .wl_nav {
+      display: flex;
+      padding: 0 12px;
+      border-bottom: 4px solid #9db6d2;
+    }
+    .wl_tab {
+      padding: 5px 14px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #000;
+      background: #fff;
+      /* 关键：白色背景只画到内边距区，不覆盖透明边框区，蓝线才不会被盖住 */
+      background-clip: padding-box;
+      cursor: pointer;
+      user-select: none;
+      /* 透明边框占位，保证选中前后尺寸一致 */
+      border: 4px solid transparent;
+      /* 让选中项的红色边框盒正好压在蓝色下划线上 */
+      margin-bottom: -4px;
+      position: relative;
+      transition: color .15s;
+    }
+    /* 悬停与选中同样式：白底红字 + 红色边框盒 */
+    /* 关键：底边框用白色盖住蓝条——激活项下方既不出现红条也不出现蓝条 */
+    .wl_tab:hover,
+    .wl_tab.wl_active {
+      color: #cc0000;
+      border-color: #cc0000;
+      border-bottom-color: #fff;
+    }
+
+    /* 内容面板 */
+    .wl_panel { display: none; padding: 12px 14px 14px; }
+    .wl_panel.wl_active { display: block; }
+
+    /* 新闻列表：圆点 + 灰黑文字，行距贴近截图 */
+    .wl_list { list-style: none; margin: 0; padding: 0; }
+    .wl_list li {
+      font-size: 13px;
+      line-height: 1.55;
+      color: #333;
+      padding: 5px 0;
+      cursor: pointer;
+    }
+    .wl_list li::before {
+      content: "•";
+      margin-right: 7px;
+      color: #333;
+    }
+    .wl_list li:hover { color: #cc0000; }
+    .wl_list li:hover::before { color: #cc0000; }
+  </style>
+</head>
+<body>
+  <div class="wl_page">
+    <!-- 选项卡组：默认选中"最新投诉" -->
+    <div class="wl_tabs" id="wl_tousuTabs">
+      <div class="wl_nav">
+        <div class="wl_tab wl_active" data-wl-panel="wl_panelTousu">最新投诉</div>
+        <div class="wl_tab" data-wl-panel="wl_panelHuifu">官方回应</div>
+        <div class="wl_tab" data-wl-panel="wl_panelDiaocha">追踪调查</div>
+      </div>
+
+      <div class="wl_panel wl_active" id="wl_panelTousu">
+        <ul class="wl_list">
+          <li>北京火车站出租车乱象调查 司机称计价器坏</li>
+          <li>公园仙人掌窜成字"毁容" 一棵仙人掌被刻</li>
+          <li>昆明再现游客"辣手摧鸥" 网友速录(组图)</li>
+          <li>四川一星级公厕开建1年未开放变“茶楼”</li>
+          <li>北京北海地坛公园暗藏高端会所 园方称“曝</li>
+          <li>北京北海金丝楠木柱遭英文字母“签名”破坏</li>
+          <li>北京动物园门票玩猫腻 低价门票遭“雪藏”</li>
+          <li>女子不满“无购物”投诉旅行社 称东西一样没</li>
+          <li>老年人参团游权益易受损 旅行社被曝对老人</li>
+        </ul>
+      </div>
+
+      <div class="wl_panel" id="wl_panelHuifu">
+        <ul class="wl_list">
+          <li>大绿鸭、翘尾鸭凑热闹 法官解读“山寨鸭”是</li>
+          <li>国家旅游局回应涨价：“团队游价格系正常</li>
+          <li>国家旅游局回应“新旅游法实施后旅行社团</li>
+          <li>出游遇纠纷可依《旅游法》维权 明确旅游投</li>
+          <li>解读新旅游法三“谣传” 扫货族可安心</li>
+          <li>《旅游法》将抑制“零负团费”和“门票经</li>
+          <li>文明旅游将入旅游合同 行为指南和公约将作</li>
+          <li>天津二季度旅行社服务质量发布 投诉涉及8</li>
+          <li>敦煌：国家法定节假日所有景点景区免收停</li>
+        </ul>
+      </div>
+
+      <div class="wl_panel" id="wl_panelDiaocha">
+        <ul class="wl_list">
+          <li>《旅游法》实施半月 自费景区遭正规一日游</li>
+          <li>追踪香格里拉旅游“怪象”：涉事导游等已</li>
+          <li>导游挣钱新“攻略”：逃离旅行社自己</li>
+          <li>九寨沟为何变成“死胡同”？——数千游客</li>
+          <li>九寨沟为何仍现游客滞留？</li>
+          <li>旅游之尴尬：“膀爷”游博物馆、女士超性感进</li>
+          <li>记者暗访兵马俑景区：玉器店买玉 过期门票</li>
+          <li>假冒香港游客借卡转账 两女子忽悠女大学生</li>
+          <li>39家旅游单位违法被罚1800万 购物店结盟统</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 外部引用 js 文件夹中的可复用选项卡组件 -->
+  <script src="js/tousu.js"></script>
+</body>
+</html>
