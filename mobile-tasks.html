@@ -229,6 +229,84 @@
   .wl_status.wl_bad { color: #b8402f; background: #fbe9e6; }
   .wl_status.wl_ok { color: #1f7a4d; background: #e6f6ec; }
 
+  /* ── 任务四强化效果：手机框晃动 / 闪光 / 表情弹跳 / 力度条 ── */
+  /* 抽中瞬间整个手机框左右摇摆 */
+  .wl_phone.wl_shaking { animation: wl_phoneShake .6s ease-in-out; }
+  @keyframes wl_phoneShake {
+    0%, 100% { transform: translateX(0) rotate(0); }
+    15% { transform: translateX(-12px) rotate(-5deg); }
+    30% { transform: translateX(12px) rotate(5deg); }
+    45% { transform: translateX(-9px) rotate(-3.5deg); }
+    60% { transform: translateX(9px) rotate(3.5deg); }
+    75% { transform: translateX(-5px) rotate(-1.5deg); }
+  }
+
+  /* 表情放大旋转弹跳 */
+  .wl_emoji { display: inline-block; }
+  .wl_emoji.wl_bounce { animation: wl_emojiBounce .7s cubic-bezier(.2, .9, .3, 1.4); }
+  @keyframes wl_emojiBounce {
+    0%   { transform: scale(1) rotate(0); }
+    30%  { transform: scale(1.7) rotate(-18deg); }
+    60%  { transform: scale(.85) rotate(12deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  /* 抽中瞬间的金色放射闪光层 */
+  .wl_flash {
+    position: absolute; inset: 0; border-radius: 22px;
+    background: radial-gradient(circle, rgba(255, 212, 121, .9) 0%, rgba(255, 183, 3, .35) 45%, transparent 72%);
+    opacity: 0; pointer-events: none; z-index: 5;
+  }
+  .wl_flash.wl_go { animation: wl_flashGo .65s ease-out; }
+  @keyframes wl_flashGo {
+    0%   { opacity: 0; transform: scale(.25); }
+    25%  { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.7); }
+  }
+
+  /* 抽中后结果卡片的金色光晕脉冲 */
+  .wl_result.wl_pop {
+    animation: wl_popIn .5s cubic-bezier(.18, .9, .3, 1.4),
+               wl_glowPulse 1.2s ease-out .35s;
+  }
+  @keyframes wl_glowPulse {
+    0%   { box-shadow: 0 0 0 rgba(255, 212, 121, 0); }
+    40%  { box-shadow: 0 0 26px rgba(255, 183, 3, .75); }
+    100% { box-shadow: 0 0 0 rgba(255, 212, 121, 0); }
+  }
+
+  /* 实时摇动力度条：白杠是阈值 18 的位置，越过就抽菜 */
+  .wl_meter { margin-top: 14px; text-align: left; }
+  .wl_meterLabel {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: #a99a8c; margin-bottom: 5px; letter-spacing: 1px;
+  }
+  .wl_meterLabel b { color: #ffd479; font-family: Consolas, monospace; }
+  .wl_meterBar {
+    position: relative; height: 14px; border-radius: 7px;
+    background: rgba(255, 255, 255, .1); overflow: visible;
+  }
+  .wl_meterFill {
+    height: 100%; width: 0%; border-radius: 7px;
+    background: linear-gradient(90deg, #43a047 0%, #fdd835 55%, #ff5722 100%);
+    transition: width .12s linear;
+  }
+  .wl_meterFill.wl_cooling { background: #6b6259; }
+  .wl_meterMark {
+    position: absolute; top: -4px; bottom: -4px; width: 2px;
+    background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, .9);
+  }
+  .wl_meterMark span {
+    position: absolute; top: -17px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; color: #fff; white-space: nowrap;
+  }
+
+  /* 抽奖次数与冷却提示 */
+  .wl_drawInfo {
+    margin-top: 10px; font-size: 12px; color: #ffd479; letter-spacing: 1px;
+    min-height: 18px;
+  }
+
   /* 手机端实测视频占位（任务三、任务四各一个，先空着） */
   .wl_videoBox {
     margin-top: 14px; border: 2px dashed #cfc7b8; border-radius: 14px;
@@ -315,7 +393,7 @@
   <p class="wl_note">双指缩放 1~4 倍 · 双击切换 1x / 2x · 放大后单指拖动查看细节。</p>
 
   <div class="wl_viewer" id="wlViewer">
-    <img id="wlImg" src="swiper-imgs/tiangong_1.jpg" alt="天宫空间站" />
+    <img id="wlImg" src="swiper-imgs/food_1.jpg" alt="中式家常菜美食" />
     <div class="wl_scaleBadge" id="wlScaleBadge">1.0x</div>
     <div class="wl_hintMask" id="wlHintMask">双指缩放请用手机打开 · 双击可放大 2 倍</div>
   </div>
@@ -340,7 +418,8 @@
   <div class="wl_sectionHead"><span class="wl_star">⭐⭐⭐⭐</span><h2>任务四 · 摇一摇彩蛋</h2></div>
   <p class="wl_note">摇一摇手机抽今日菜谱；阈值 18，触发后冷却 1.5 秒；无传感器时自动降级。</p>
 
-  <div class="wl_phone">
+  <div class="wl_phone" id="wlPhone">
+    <div class="wl_flash" id="wlFlash"></div>
     <div class="wl_emoji" id="wlEmoji">🎲</div>
     <div class="wl_tipText" id="wlTipText">摇一摇手机，抽今日菜谱</div>
     <div class="wl_result" id="wlResult">
@@ -348,6 +427,20 @@
       <div class="wl_dishDesc" id="wlDishDesc">还没有结果，摇一摇试试看</div>
     </div>
   </div>
+
+  <!-- 实时摇动力度条：白杠是阈值 18，力度越过白杠立即抽菜 -->
+  <div class="wl_meter">
+    <div class="wl_meterLabel">
+      <span>摇动力度（实时）</span>
+      <b id="wlForceNum">0.0</b>
+    </div>
+    <div class="wl_meterBar">
+      <div class="wl_meterFill" id="wlMeterFill"></div>
+      <div class="wl_meterMark" style="left:60%"><span>阈值 18</span></div>
+    </div>
+  </div>
+
+  <div class="wl_drawInfo" id="wlDrawInfo">已抽 0 次 · 冷却 1.5 秒</div>
 
   <div class="wl_status" id="wlStatus">正在检测设备传感器……</div>
 
@@ -809,23 +902,76 @@ var wl_menu = [
 var wl_lastShake = 0;         // 上次触发时间戳（冷却用）
 var wl_SHAKE_COOLDOWN = 1500; // 1.5 秒冷却
 var wl_SHAKE_THRESHOLD = 18;  // 合成加速度阈值
+var wl_METER_FULL = 30;       // 力度条满格对应数值（阈值 18 正好在 60% 处）
 var wl_hasMotion = false;     // 是否真的收到过传感器数据
 var wl_watchTimer = null;     // 检测「有没有数据」的定时器
+var wl_drawCount = 0;         // 已抽奖次数
+var wl_fxTimers = [];         // 特效类名的移除定时器
 var wl_statusEl = document.getElementById('wlStatus');
 var wl_permissionBtn = document.getElementById('wlPermissionBtn');
+var wl_phoneEl = document.getElementById('wlPhone');
+var wl_flashEl = document.getElementById('wlFlash');
+var wl_emojiEl = document.getElementById('wlEmoji');
+var wl_meterFill = document.getElementById('wlMeterFill');
+var wl_forceNum = document.getElementById('wlForceNum');
+var wl_drawInfo = document.getElementById('wlDrawInfo');
 
-// 随机抽一道菜，并播放弹出动画
+// 重新触发一个 CSS 动画类：先移除、强制重排、再添加
+function wl_replayClass(el, cls, duration) {
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+  var timer = setTimeout(function () { el.classList.remove(cls); }, duration);
+  wl_fxTimers.push(timer);
+}
+
+// 抽中瞬间的全套强化特效：手机框晃动 + 金色闪光 + 表情弹跳 + 手机震动
+function wl_playShakeFx() {
+  wl_replayClass(wl_phoneEl, 'wl_shaking', 600);
+  wl_replayClass(wl_flashEl, 'wl_go', 650);
+  wl_replayClass(wl_emojiEl, 'wl_bounce', 700);
+  // 支持震动 API 的安卓手机会真的震一下（iOS Safari 不支持，自动忽略）
+  if (navigator.vibrate) {
+    try { navigator.vibrate([100, 50, 150]); } catch (err) {}
+  }
+}
+
+// 实时更新力度条：按满格 30 换算百分比，阈值 18 对应 60% 的白杠
+function wl_updateMeter(magnitude) {
+  var percent = Math.min(100, (magnitude / wl_METER_FULL) * 100);
+  wl_meterFill.style.width = percent + '%';
+  wl_forceNum.textContent = magnitude.toFixed(1);
+}
+
+// 冷却期把力度条变灰，结束后恢复彩色
+function wl_setCooling(on) {
+  if (on) {
+    wl_meterFill.classList.add('wl_cooling');
+    wl_drawInfo.textContent = '已抽 ' + wl_drawCount + ' 次 · 冷却中 1.5 秒…';
+  } else {
+    wl_meterFill.classList.remove('wl_cooling');
+    wl_drawInfo.textContent = '已抽 ' + wl_drawCount + ' 次 · 冷却 1.5 秒';
+  }
+}
+
+// 随机抽一道菜，并播放全套弹出/晃动特效
 function wl_drawDish() {
   var dish = wl_menu[Math.floor(Math.random() * wl_menu.length)];
-  document.getElementById('wlEmoji').textContent = dish.emoji;
+  wl_drawCount++;
+
+  wl_emojiEl.textContent = dish.emoji;
   document.getElementById('wlDishName').textContent = dish.name;
   document.getElementById('wlDishDesc').textContent = dish.desc;
-  document.getElementById('wlTipText').textContent = '今日就吃它！';
+  document.getElementById('wlTipText').textContent = '🎉 抽中啦！今日就吃它！';
 
   var box = document.getElementById('wlResult');
   box.classList.remove('wl_pop');
   void box.offsetWidth;          // 强制重排，让动画能重新播放
   box.classList.add('wl_pop');
+
+  wl_playShakeFx();              // 手机框晃动 + 闪光 + 表情弹跳 + 震动
+  wl_setCooling(true);           // 力度条变灰提示冷却
+  setTimeout(function () { wl_setCooling(false); }, wl_SHAKE_COOLDOWN);
 }
 
 // 更新状态条文字与配色
@@ -834,7 +980,7 @@ function wl_setStatus(text, type) {
   wl_statusEl.className = 'wl_status' + (type ? ' ' + type : '');
 }
 
-// 传感器回调：算合成加速度，超阈值且不在冷却期才抽菜
+// 传感器回调：每次都刷新力度条，超过阈值且不在冷却期才抽菜
 function wl_onMotion(e) {
   var acc = e.accelerationIncludingGravity;
   if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
@@ -846,6 +992,7 @@ function wl_onMotion(e) {
   }
 
   var magnitude = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+  wl_updateMeter(magnitude);               // 实时力度，让摇动过程肉眼可见
   if (magnitude < wl_SHAKE_THRESHOLD) return;
 
   var now = Date.now();
@@ -901,10 +1048,16 @@ function wl_startMotion() {
   }, 3000);
 }
 
-// 降级按钮：任何设备点一下都能抽菜
+// 降级按钮：任何设备点一下都能抽菜；同时让力度条冲到满格再回落，模拟摇动感
 document.getElementById('wlFallbackBtn').addEventListener('click', function () {
   wl_lastShake = Date.now();   // 同步冷却，避免紧接着摇动又触发
+  wl_forceNum.textContent = wl_METER_FULL.toFixed(1);
+  wl_meterFill.style.width = '100%';
   wl_drawDish();
+  setTimeout(function () {
+    wl_meterFill.style.width = '0%';
+    wl_forceNum.textContent = '0.0';
+  }, 700);
 });
 
 wl_sensorInit();
