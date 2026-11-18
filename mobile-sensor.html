@@ -1,0 +1,318 @@
+<!--
+  作者：王乐
+  姓名学号：王乐 · 24002120206
+  建立时间：2026-11-18 20:00:00
+  使用模型：DeepSeek-V4.1-Flash
+  功能名称：任务四 · 摇一摇抽菜谱（devicemotion 加速度 + 1.5 秒冷却 + iOS 权限 + 降级按钮）
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<!-- 手机页面必备：viewport，不写会整体缩小 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>任务四 · 摇一摇 · 今日菜谱</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    background: radial-gradient(circle at 50% 0%, #2b1d16 0%, #14100e 60%);
+    min-height: 100vh;
+    padding: 26px 16px 60px;
+    color: #f3ece4;
+  }
+
+  .wl_header { text-align: center; margin-bottom: 20px; }
+  .wl_header h1 { font-size: 21px; letter-spacing: 2px; }
+  .wl_header p { font-size: 12px; color: #a99a8c; margin-top: 8px; line-height: 1.9; }
+
+  /* 手机外框：中间放结果 */
+  .wl_phone {
+    position: relative;
+    max-width: 360px;
+    margin: 0 auto;
+    background: linear-gradient(160deg, #241a15, #3a2a20);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 24px;
+    padding: 30px 22px 28px;
+    text-align: center;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .5);
+    overflow: hidden;
+  }
+
+  .wl_emoji { font-size: 54px; line-height: 1; margin-bottom: 14px; }
+
+  .wl_tipText {
+    font-size: 14px;
+    color: #c9b8a8;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  /* 结果卡片：抽中后加 wl_pop 触发弹出动画 */
+  .wl_result {
+    background: rgba(255, 255, 255, .06);
+    border: 1px dashed rgba(255, 255, 255, .18);
+    border-radius: 16px;
+    padding: 20px 16px;
+    min-height: 108px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .wl_result.wl_pop { animation: wl_popIn .5s cubic-bezier(.18, .9, .3, 1.4); }
+
+  @keyframes wl_popIn {
+    0%   { transform: scale(.6) rotate(-6deg); opacity: 0; }
+    60%  { transform: scale(1.06) rotate(2deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+
+  .wl_dishName {
+    font-size: 25px;
+    font-weight: bold;
+    letter-spacing: 3px;
+    color: #ffd479;
+    margin-bottom: 8px;
+  }
+  .wl_dishDesc { font-size: 13px; line-height: 1.9; color: #bfae9e; }
+
+  /* 状态条：显示传感器是否可用 */
+  .wl_status {
+    max-width: 360px;
+    margin: 16px auto 0;
+    font-size: 12px;
+    line-height: 1.8;
+    text-align: center;
+    color: #a99a8c;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .04);
+  }
+  .wl_status.wl_bad { color: #ffb3a7; background: rgba(255, 80, 60, .12); }
+  .wl_status.wl_ok { color: #9be6b3; background: rgba(60, 200, 120, .12); }
+
+  /* 按钮 */
+  .wl_btns {
+    max-width: 360px;
+    margin: 18px auto 0;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .wl_btn {
+    padding: 12px 22px;
+    border: none;
+    border-radius: 26px;
+    font-size: 14px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    background: #ffb703;
+    color: #241a15;
+    font-weight: bold;
+    transition: transform .15s ease, opacity .2s;
+  }
+  .wl_btn:active { transform: scale(.95); }
+  .wl_btn.wl_ghost {
+    background: transparent;
+    color: #ffd479;
+    border: 1px solid rgba(255, 212, 121, .5);
+    font-weight: normal;
+  }
+
+  /* 降级说明 */
+  .wl_panel {
+    max-width: 460px;
+    margin: 22px auto 0;
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 20px;
+    font-size: 13px;
+    line-height: 2;
+    color: #6b6259;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+  }
+  .wl_panel h3 { font-size: 14px; color: #2c2c2c; margin-bottom: 8px; }
+  .wl_panel strong { color: #c0392b; }
+
+  /* 手机端实测视频占位（后续把 <video src> 补上即可） */
+  .wl_videoBox {
+    max-width: 460px;
+    margin: 18px auto 0;
+    border: 2px dashed rgba(255, 255, 255, .25);
+    border-radius: 14px;
+    padding: 26px 18px;
+    text-align: center;
+    color: #a99a8c;
+    font-size: 13px;
+  }
+  .wl_videoBox .wl_videoIcon { font-size: 26px; display: block; margin-bottom: 8px; }
+  .wl_videoBox .wl_videoNote { font-size: 12px; color: #8d8175; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="wl_header">
+  <h1>摇一摇 · 今日菜谱</h1>
+  <p>摇一摇手机，抽一道今日菜谱</p>
+</div>
+
+<div class="wl_phone">
+  <div class="wl_emoji" id="wlEmoji">🎲</div>
+  <div class="wl_tipText" id="wlTipText">摇一摇手机，抽今日菜谱</div>
+  <div class="wl_result" id="wlResult">
+    <div class="wl_dishName" id="wlDishName">？</div>
+    <div class="wl_dishDesc" id="wlDishDesc">还没有结果，摇一摇试试看</div>
+  </div>
+</div>
+
+<div class="wl_status" id="wlStatus">正在检测设备传感器……</div>
+
+<div class="wl_btns">
+  <button class="wl_btn" id="wlPermissionBtn" style="display:none">开启摇一摇（iOS 授权）</button>
+  <button class="wl_btn wl_ghost" id="wlFallbackBtn">点我抽一次</button>
+</div>
+
+<!-- 任务四：手机端实测视频 —— 先空着，后续补上 src 与封面 -->
+<!-- 补视频时把下面的注释替换为：
+     <video class="wl_video" controls playsinline src="你的录屏文件.mp4"></video> -->
+<div class="wl_videoBox">
+  <span class="wl_videoIcon">📹</span>
+  手机端实测视频（待添加）
+  <div class="wl_videoNote">占位区域 · 后续把 &lt;video&gt; 的 src 指向手机录屏即可</div>
+</div>
+
+<div class="wl_panel">
+  <h3>为什么必须做降级？</h3>
+  <p>① <strong>不是所有设备都有加速度传感器</strong>：部分老机型、模拟器、桌面浏览器根本不会触发 <code>devicemotion</code>，此时页面若无兜底就是一片空白，用户不知道发生了什么。</p>
+  <p>② <strong>权限可能被拒绝</strong>：iOS 13+ 必须在用户点击后调用 <code>DeviceMotionEvent.requestPermission()</code>，用户点「不允许」后事件永远不会到来。</p>
+  <p>③ <strong>数据可能为空</strong>：事件来了但 <code>accelerationIncludingGravity</code> 为 null 的情况也存在。</p>
+  <p>所以：检测不到就明确提示「当前设备不支持，请用手机打开」，再给一个「点我抽一次」的按钮，功能照样能用——<strong>降级是为了保证任何设备上都有可用路径，不报错、不白屏。</strong></p>
+</div>
+
+<script>
+// 今日菜谱池
+var wl_dishes = [
+  { name: '麻婆豆腐', emoji: '🌶️', desc: '麻辣鲜香，豆腐嫩滑，配一碗白饭刚好。' },
+  { name: '宫保鸡丁', emoji: '🥜', desc: '酸甜微辣，花生香脆，下饭指数五颗星。' },
+  { name: '西湖醋鱼', emoji: '🐟', desc: '酸甜适口，鱼肉细嫩，杭帮名菜。' },
+  { name: '北京烤鸭', emoji: '🦆', desc: '皮脆肉嫩，荷叶饼卷葱丝甜面酱。' },
+  { name: '兰州拉面', emoji: '🍜', desc: '一清二白三红四绿五黄，汤鲜面劲。' },
+  { name: '小笼包', emoji: '🥟', desc: '皮薄馅大，先开窗后喝汤。' }
+];
+
+var wl_lastShake = 0;         // 上次触发摇动的时间戳（做冷却用）
+var wl_COOLDOWN = 1500;       // 冷却 1.5 秒，防止一次摇动触发多次
+var wl_THRESHOLD = 18;        // 合成加速度阈值（约 18）
+var wl_hasMotionData = false; // 是否真的收到过传感器数据
+var wl_watchTimer = null;     // 检测「有没有数据」的定时器
+
+var wl_statusEl = document.getElementById('wlStatus');
+var wl_permissionBtn = document.getElementById('wlPermissionBtn');
+
+// 随机抽一道菜并播放弹出动画
+function wl_drawDish() {
+  var i = Math.floor(Math.random() * wl_dishes.length);
+  var dish = wl_dishes[i];
+
+  document.getElementById('wlEmoji').textContent = dish.emoji;
+  document.getElementById('wlDishName').textContent = dish.name;
+  document.getElementById('wlDishDesc').textContent = dish.desc;
+  document.getElementById('wlTipText').textContent = '今日就吃它！';
+
+  var box = document.getElementById('wlResult');
+  box.classList.remove('wl_pop');
+  void box.offsetWidth;          // 强制重排，让动画能重新播放
+  box.classList.add('wl_pop');
+}
+
+// 更新状态条文字与配色
+function wl_setStatus(text, type) {
+  wl_statusEl.textContent = text;
+  wl_statusEl.className = 'wl_status' + (type ? ' ' + type : '');
+}
+
+// 传感器事件回调：算合成加速度，超过阈值且不在冷却期才抽菜
+function wl_onDeviceMotion(e) {
+  var acc = e.accelerationIncludingGravity;
+  // 没有数据就不处理（部分设备会发空事件）
+  if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
+
+  if (!wl_hasMotionData) {
+    wl_hasMotionData = true;
+    wl_setStatus('传感器已就绪，摇一摇手机即可抽菜谱', 'wl_ok');
+    clearTimeout(wl_watchTimer);
+  }
+
+  // 合成加速度 = 三轴平方和的平方根
+  var magnitude = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+
+  if (magnitude < wl_THRESHOLD) return;
+
+  // 冷却期内直接忽略，保证一次摇动只触发一次
+  var now = Date.now();
+  if (now - wl_lastShake < wl_COOLDOWN) return;
+  wl_lastShake = now;
+
+  wl_drawDish();
+}
+
+// 进入降级模式：提示不支持，同时保留「点我抽一次」按钮
+function wl_enableFallback(reason) {
+  wl_setStatus(reason, 'wl_bad');
+  document.getElementById('wlTipText').textContent = '当前设备不支持摇一摇';
+}
+
+// 绑定传感器；不支持或需要授权时按情况降级
+function wl_initSensor() {
+  // 连事件都没有：直接降级
+  if (!window.DeviceMotionEvent) {
+    wl_enableFallback('当前设备不支持（无 devicemotion），请用手机打开，可点击「点我抽一次」');
+    return;
+  }
+
+  // iOS 13+ 需要用户点击后申请权限
+  if (typeof DeviceMotionEvent.requestPermission === 'function') {
+    wl_setStatus('iOS 设备需先授权，请点击下方按钮', 'wl_bad');
+    wl_permissionBtn.style.display = 'inline-block';
+    wl_permissionBtn.addEventListener('click', function () {
+      DeviceMotionEvent.requestPermission().then(function (state) {
+        if (state === 'granted') {
+          wl_permissionBtn.style.display = 'none';
+          wl_startListening();
+        } else {
+          wl_enableFallback('权限被拒绝，无法读取传感器，请用「点我抽一次」');
+        }
+      }).catch(function () {
+        wl_enableFallback('授权失败，请用「点我抽一次」');
+      });
+    });
+    return;
+  }
+
+  wl_startListening();
+}
+
+// 正式监听 devicemotion，并在 3 秒内收不到数据时降级
+function wl_startListening() {
+  window.addEventListener('devicemotion', wl_onDeviceMotion, { passive: true });
+  wl_setStatus('正在检测设备传感器……');
+
+  wl_watchTimer = setTimeout(function () {
+    if (!wl_hasMotionData) {
+      wl_enableFallback('当前设备不支持或无传感器数据，请用手机打开，可点击「点我抽一次」');
+    }
+  }, 3000);
+}
+
+// 降级按钮：任何设备上点一下都能抽菜
+document.getElementById('wlFallbackBtn').addEventListener('click', function () {
+  wl_lastShake = Date.now();   // 同步冷却，避免紧接着摇动又触发一次
+  wl_drawDish();
+});
+
+wl_initSensor();
+</script>
+</body>
+</html>

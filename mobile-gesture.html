@@ -1,0 +1,292 @@
+<!--
+  作者：王乐
+  姓名学号：王乐 · 24002120206
+  建立时间：2026-11-18 20:00:00
+  使用模型：DeepSeek-V4.1-Flash
+  功能名称：任务二 · 手势卡片（左右滑动切换中华美食，阈值 40px + 300ms 冷却）
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<!-- 手机页面必备：viewport，不写会整体缩小 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>任务二 · 手势卡片 · 中华美食</title>
+<style>
+  /* 全局去掉 iOS / 安卓的点击灰块 */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    background: #f4f1ea;
+    color: #2c2c2c;
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+
+  .wl_header { text-align: center; margin-bottom: 18px; }
+  .wl_header h1 { font-size: 20px; letter-spacing: 2px; }
+  .wl_header p { font-size: 12px; color: #8a8378; margin-top: 6px; }
+
+  /* 卡片舞台：overflow 裁掉轨道上多余的卡片 */
+  .wl_stage {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 20px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .16);
+    /* 只接管横向手势，纵向留给浏览器滚动页面 */
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* 轨道：4 张卡片横向排开，靠 translateX 位移切换 */
+  .wl_track {
+    display: flex;
+    will-change: transform;
+    transition: transform .3s ease; /* 切换 0.3s 过渡动画 */
+  }
+
+  .wl_card {
+    flex: 0 0 100%;
+    height: 420px;
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    color: #fff;
+    position: relative;
+  }
+  .wl_card .wl_tag {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    font-size: 12px;
+    letter-spacing: 2px;
+    background: rgba(255, 255, 255, .22);
+    padding: 4px 12px;
+    border-radius: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .wl_card h2 { font-size: 30px; letter-spacing: 4px; margin-bottom: 10px; }
+  .wl_card p { font-size: 14px; line-height: 1.9; opacity: .92; }
+  .wl_card .wl_hint {
+    margin-top: 14px;
+    font-size: 12px;
+    opacity: .75;
+    border-top: 1px solid rgba(255, 255, 255, .3);
+    padding-top: 10px;
+  }
+
+  /* 4 道菜各自的渐变背景 */
+  .wl_bg1 { background: linear-gradient(150deg, #c0392b, #e17055); }
+  .wl_bg2 { background: linear-gradient(150deg, #d35400, #f39c12); }
+  .wl_bg3 { background: linear-gradient(150deg, #0f766e, #2dd4bf); }
+  .wl_bg4 { background: linear-gradient(150deg, #4a2c2a, #b07d4a); }
+
+  .wl_footer {
+    max-width: 420px;
+    margin: 18px auto 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .wl_counter {
+    font-size: 14px;
+    color: #6b6259;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+
+  /* 边界提示条 */
+  .wl_tip {
+    max-width: 420px;
+    margin: 14px auto 0;
+    height: 22px;
+    text-align: center;
+    font-size: 13px;
+    color: #c0392b;
+    opacity: 0;
+    transition: opacity .25s ease;
+  }
+  .wl_tip.wl_show { opacity: 1; }
+
+  .wl_dots {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 16px;
+  }
+  .wl_dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #d8d2c6;
+    transition: all .3s ease;
+  }
+  .wl_dot.wl_active { width: 22px; border-radius: 4px; background: #c0392b; }
+
+  /* 页面下半部分：用来验证纵向滚动没有被手势吃掉 */
+  .wl_scrollBox {
+    max-width: 420px;
+    margin: 30px auto 0;
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 20px;
+    font-size: 13px;
+    line-height: 2;
+    color: #6b6259;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .06);
+  }
+  .wl_scrollBox strong { color: #c0392b; }
+</style>
+</head>
+<body>
+
+<div class="wl_header">
+  <h1>中华美食 · 手势卡片</h1>
+  <p>左右滑动切换上一道 / 下一道</p>
+</div>
+
+<!-- 卡片舞台（touch-action: pan-y 只接管横向手势） -->
+<div class="wl_stage" id="wlStage">
+  <div class="wl_track" id="wlTrack"></div>
+</div>
+
+<div class="wl_footer">
+  <span class="wl_counter" id="wlCounter">第 1 / 4 张</span>
+</div>
+
+<div class="wl_tip" id="wlTip"></div>
+
+<div class="wl_dots" id="wlDots"></div>
+
+<div class="wl_scrollBox">
+  <p><strong>验收 ③：</strong>在这块区域上下拖动，页面能正常滚动——因为卡片容器只设置了 <code>touch-action: pan-y</code>，横向手势归 JS，纵向交给浏览器。</p>
+  <p><strong>验收 ①：</strong>短距离误触（位移小于 40px）不会切换。</p>
+  <p><strong>验收 ②：</strong>快速连续滑动有 300ms 冷却，一次只切一张，不会跳两张。</p>
+</div>
+
+<script>
+// 4 道菜的数据：菜名、简介、渐变背景类名
+var wl_dishes = [
+  { name: '麻婆豆腐', tag: '川菜 · 麻辣', desc: '豆腐嫩滑，牛肉末酥香，花椒与豆瓣酱交织出「麻、辣、烫、香、酥、嫩、鲜、活」八味。', bg: 'wl_bg1', hint: '小贴士：起锅前撒一把青蒜末更提香。' },
+  { name: '宫保鸡丁', tag: '川菜 · 糊辣', desc: '鸡丁滑嫩、花生香脆，糖醋与干辣椒碰撞出酸甜微辣的复合味型。', bg: 'wl_bg2', hint: '小贴士：花生米最后下锅才够脆。' },
+  { name: '西湖醋鱼', tag: '浙菜 · 酸甜', desc: '草鱼经过「饿养」去土腥，沸水汆熟后浇上糖醋汁，鱼肉鲜嫩、酸甜适口。', bg: 'wl_bg3', hint: '小贴士：汁要勾薄芡，挂住鱼身不流汤。' },
+  { name: '北京烤鸭', tag: '京菜 · 脆皮', desc: '果木明火烤制，鸭皮枣红酥脆、鸭肉细嫩多汁，配荷叶饼、葱丝与甜面酱卷食。', bg: 'wl_bg4', hint: '小贴士：片鸭讲究「皮肉相连」，一口一片。' }
+];
+
+var wl_index = 0;            // 当前第几张（0 开始）
+var wl_startX = 0;           // 手指按下时的横坐标
+var wl_startY = 0;           // 手指按下时的纵坐标
+var wl_lockedUntil = 0;      // 冷却结束时间戳（防止快速连滑跳两张）
+var wl_tipTimer = null;      // 边界提示的定时器
+
+// 阈值：小于 40px 视为误触，不切换
+var wl_THRESHOLD = 40;
+// 冷却时间：300ms 内不接受第二次滑动
+var wl_COOLDOWN = 300;
+
+// 根据 wl_dishes 生成卡片轨道与圆点
+function wl_buildCards() {
+  var track = document.getElementById('wlTrack');
+  var dots = document.getElementById('wlDots');
+  var html = '';
+  for (var i = 0; i < wl_dishes.length; i++) {
+    var d = wl_dishes[i];
+    html +=
+      '<div class="wl_card ' + d.bg + '">' +
+        '<span class="wl_tag">' + d.tag + '</span>' +
+        '<h2>' + d.name + '</h2>' +
+        '<p>' + d.desc + '</p>' +
+        '<div class="wl_hint">' + d.hint + '</div>' +
+      '</div>';
+  }
+  track.innerHTML = html;
+
+  var dotHtml = '';
+  for (var j = 0; j < wl_dishes.length; j++) {
+    dotHtml += '<span class="wl_dot' + (j === 0 ? ' wl_active' : '') + '" data-wl-index="' + j + '"></span>';
+  }
+  dots.innerHTML = dotHtml;
+}
+
+// 切换到指定索引，并同步位移、计数文字、圆点
+function wl_goTo(target) {
+  wl_index = target;
+  var track = document.getElementById('wlTrack');
+  track.style.transform = 'translateX(' + (-wl_index * 100) + '%)';
+
+  document.getElementById('wlCounter').textContent =
+    '第 ' + (wl_index + 1) + ' / ' + wl_dishes.length + ' 张';
+
+  var dots = document.querySelectorAll('.wl_dot');
+  for (var i = 0; i < dots.length; i++) {
+    dots[i].className = 'wl_dot' + (i === wl_index ? ' wl_active' : '');
+  }
+}
+
+// 显示边界提示（例如“已经是第一张”），1.2 秒后自动淡出
+function wl_showTip(text) {
+  var tip = document.getElementById('wlTip');
+  tip.textContent = text;
+  tip.classList.add('wl_show');
+  clearTimeout(wl_tipTimer);
+  wl_tipTimer = setTimeout(function() {
+    tip.classList.remove('wl_show');
+  }, 1200);
+}
+
+// 手指按下：记录起点坐标
+function wl_onTouchStart(e) {
+  var t = e.touches[0];
+  wl_startX = t.clientX;
+  wl_startY = t.clientY;
+}
+
+// 手指抬起：用 changedTouches[0] 算横向位移，判断是否翻页
+function wl_onTouchEnd(e) {
+  // 冷却期内直接忽略，避免一次连滑跳两张
+  if (Date.now() < wl_lockedUntil) return;
+
+  var t = e.changedTouches[0];        // 抬手时这根手指已不在 touches 里，必须用 changedTouches
+  var dx = t.clientX - wl_startX;     // 横向位移
+  var dy = t.clientY - wl_startY;     // 纵向位移
+
+  // 位移太小 → 误触（点击），不切换
+  if (Math.abs(dx) < wl_THRESHOLD) return;
+  // 纵向位移大于横向 → 用户在上下滚动页面，不抢手势
+  if (Math.abs(dy) > Math.abs(dx)) return;
+
+  if (dx < 0) {
+    // 左滑 → 下一张
+    if (wl_index >= wl_dishes.length - 1) {
+      wl_showTip('已经是最后一张了');
+      return;
+    }
+    wl_goTo(wl_index + 1);
+  } else {
+    // 右滑 → 上一张
+    if (wl_index <= 0) {
+      wl_showTip('已经是第一张了');
+      return;
+    }
+    wl_goTo(wl_index - 1);
+  }
+
+  // 切换成功后进入冷却，防止快速连滑一次跳两张
+  wl_lockedUntil = Date.now() + wl_COOLDOWN;
+}
+
+// 初始化：生成卡片、绑定触摸事件
+function wl_init() {
+  wl_buildCards();
+  var stage = document.getElementById('wlStage');
+  stage.addEventListener('touchstart', wl_onTouchStart, { passive: true });
+  stage.addEventListener('touchend', wl_onTouchEnd, { passive: true });
+}
+
+wl_init();
+</script>
+</body>
+</html>

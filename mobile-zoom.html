@@ -1,0 +1,410 @@
+<!--
+  作者：王乐
+  姓名学号：王乐 · 24002120206
+  建立时间：2026-11-18 20:00:00
+  使用模型：DeepSeek-V4.1-Flash
+  功能名称：任务三 · 图片查看器（双指缩放 1~4 倍 + 双击 1x/2x + 单指拖动 + 边界限制）
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<!-- 手机页面必备：viewport，不写会整体缩小 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>任务三 · 图片查看器 · 双指缩放</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    background: #f2f0eb;
+    min-height: 100vh;
+    padding: 20px 16px 60px;
+    color: #2c2c2c;
+  }
+
+  .wl_header { text-align: center; margin-bottom: 16px; }
+  .wl_header h1 { font-size: 20px; letter-spacing: 2px; }
+  .wl_header p { font-size: 12px; color: #8a8378; margin-top: 6px; line-height: 1.8; }
+
+  /* 查看器容器：裁掉溢出部分，手势全部自己接管 */
+  .wl_viewer {
+    position: relative;
+    width: 100%;
+    max-width: 460px;
+    height: 60vh;
+    min-height: 320px;
+    margin: 0 auto;
+    overflow: hidden;
+    background: #14171c;
+    border-radius: 18px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .25);
+    /* 这三行是移动端接管手势的关键 */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* 图片：绝对定位居中，transform 做缩放与位移 */
+  .wl_viewer img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(1);
+    will-change: transform;
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+  /* 双击时给 0.25s 过渡，拖动/双指缩放时不加 */
+  .wl_viewer img.wl_anim { transition: transform .25s ease; }
+
+  /* 缩放比例指示器 */
+  .wl_scaleBadge {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: #fff;
+    background: rgba(255, 255, 255, .16);
+    padding: 4px 10px;
+    border-radius: 20px;
+    backdrop-filter: blur(4px);
+  }
+
+  /* 打开时的提示（会淡出） */
+  .wl_hintMask {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #fff;
+    background: linear-gradient(transparent, rgba(0, 0, 0, .65));
+    transition: opacity .6s ease;
+  }
+  .wl_hintMask.wl_hide { opacity: 0; }
+
+  .wl_panel {
+    max-width: 460px;
+    margin: 18px auto 0;
+    background: #fff;
+    border-radius: 14px;
+    padding: 16px 18px;
+    font-size: 13px;
+    line-height: 2;
+    color: #6b6259;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .06);
+  }
+  .wl_panel strong { color: #c0392b; }
+
+  /* 手机端实测视频占位（后续把 <video src> 补上即可） */
+  .wl_videoBox {
+    max-width: 460px;
+    margin: 18px auto 0;
+    border: 2px dashed #cfc7b8;
+    border-radius: 14px;
+    padding: 26px 18px;
+    text-align: center;
+    color: #9c9385;
+    font-size: 13px;
+    background: #fbfaf7;
+  }
+  .wl_videoBox .wl_videoIcon { font-size: 26px; display: block; margin-bottom: 8px; }
+  .wl_videoBox .wl_videoNote { font-size: 12px; color: #b5ac9d; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="wl_header">
+  <h1>图片查看器 · 双指缩放</h1>
+  <p>双指缩放 1~4 倍 · 双击切换 1x / 2x · 放大后单指拖动</p>
+</div>
+
+<!-- 查看器容器 -->
+<div class="wl_viewer" id="wlViewer">
+  <img id="wlImg" src="swiper-imgs/tiangong_1.jpg" alt="天宫空间站" />
+  <div class="wl_scaleBadge" id="wlScaleBadge">1.0x</div>
+  <div class="wl_hintMask" id="wlHintMask">双指缩放请用手机打开 · 双击可放大 2 倍</div>
+</div>
+
+<div class="wl_panel">
+  <p><strong>验收 ①：</strong>按下时记录两指中点，缩放按「中点不动」的公式换算位移，所以画面不会跳。</p>
+  <p><strong>验收 ②：</strong>缩放范围被限制在 1~4 倍，拖到边缘还会被夹紧，不会跑飞。</p>
+  <p><strong>验收 ③：</strong>1x 时禁止拖动（可拖距离为 0），只能看到完整大图。</p>
+  <p><strong>验收 ④：</strong>旋转屏幕会触发 resize，重新计算可拖范围并夹紧，缩放状态不丢失。</p>
+</div>
+
+<!-- 任务三：手机端实测视频 —— 先空着，后续补上 src 与封面 -->
+<!-- 补视频时把下面的注释替换为：
+     <video class="wl_video" controls playsinline src="你的录屏文件.mp4"></video> -->
+<div class="wl_videoBox">
+  <span class="wl_videoIcon">📹</span>
+  手机端实测视频（待添加）
+  <div class="wl_videoNote">占位区域 · 后续把 &lt;video&gt; 的 src 指向手机录屏即可</div>
+</div>
+
+<script>
+var wl_viewer = document.getElementById('wlViewer');
+var wl_img = document.getElementById('wlImg');
+var wl_badge = document.getElementById('wlScaleBadge');
+
+// ── 状态变量 ─────────────────────────────
+var wl_scale = 1;          // 当前缩放倍数
+var wl_tx = 0;             // 图片中心相对容器中心的横向位移
+var wl_ty = 0;             // 图片中心相对容器中心的纵向位移
+var wl_baseW = 0;          // 1 倍时图片实际显示宽度（contain 计算得出）
+var wl_baseH = 0;          // 1 倍时图片实际显示高度
+
+var wl_mode = '';          // 'pinch' 双指 | 'drag' 单指 | ''
+var wl_pinchDist = 0;      // 双指按下时的初始间距
+var wl_pinchScale = 1;     // 双指按下时的缩放倍数
+var wl_pinchMid = { x: 0, y: 0 };   // 双指中点（相对容器中心）
+var wl_pinchTx = 0;        // 双指按下时的位移
+var wl_pinchTy = 0;
+
+var wl_dragX = 0;          // 单指按下点
+var wl_dragY = 0;
+var wl_dragTx = 0;         // 单指按下时的位移
+var wl_dragTy = 0;
+var wl_moved = false;      // 本次触摸是否移动过（用于双击判断）
+
+var wl_lastTapTime = 0;    // 上次「轻点」的时间戳
+var wl_lastTapX = 0;
+var wl_lastTapY = 0;
+var wl_tapStartTime = 0;
+
+var wl_MIN_SCALE = 1;      // 最小 1 倍
+var wl_MAX_SCALE = 4;      // 最大 4 倍
+var wl_DOUBLE_SCALE = 2;   // 双击放大到 2 倍
+
+// 计算两个触点之间的直线距离
+function wl_dist(t1, t2) {
+  return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+}
+
+// 把数值限制在 min ~ max 之间
+function wl_clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+// 根据容器与图片原始尺寸，算出 1 倍时图片的显示尺寸（object-fit: contain 的效果）
+function wl_fitSize() {
+  var cw = wl_viewer.clientWidth;
+  var ch = wl_viewer.clientHeight;
+  var nw = wl_img.naturalWidth || cw;
+  var nh = wl_img.naturalHeight || ch;
+  var ratio = Math.min(cw / nw, ch / nh);
+  wl_baseW = nw * ratio;
+  wl_baseH = nh * ratio;
+  wl_img.style.width = wl_baseW + 'px';
+  wl_img.style.height = wl_baseH + 'px';
+}
+
+// 计算当前倍数下允许的最大位移，超出就拖出边界了
+function wl_maxOffset() {
+  var cw = wl_viewer.clientWidth;
+  var ch = wl_viewer.clientHeight;
+  return {
+    x: Math.max(0, (wl_baseW * wl_scale - cw) / 2),
+    y: Math.max(0, (wl_baseH * wl_scale - ch) / 2)
+  };
+}
+
+// 把位移夹在边界内，保证 1 倍时位移一定为 0（拖不动）
+function wl_clampOffset() {
+  var mo = wl_maxOffset();
+  wl_tx = wl_clamp(wl_tx, -mo.x, mo.x);
+  wl_ty = wl_clamp(wl_ty, -mo.y, mo.y);
+}
+
+// 把当前 scale / tx / ty 写进 transform，并刷新比例指示器
+function wl_apply(useAnim) {
+  if (useAnim) {
+    wl_img.classList.add('wl_anim');
+  } else {
+    wl_img.classList.remove('wl_anim');
+  }
+  wl_img.style.transform =
+    'translate(-50%, -50%) translate(' + wl_tx + 'px, ' + wl_ty + 'px) scale(' + wl_scale + ')';
+  wl_badge.textContent = wl_scale.toFixed(1) + 'x';
+}
+
+// 以某个屏幕点为基准缩放：保证该点下方的图像内容位置不变（这就是「不跳」的核心）
+// m：基准点相对容器中心的坐标；s0 -> s1 的缩放，位移按 t1 = m - (s1/s0) * (m - t0) 换算
+function wl_zoomAt(m, s1, t0x, t0y, s0, useAnim) {
+  var k = s1 / s0;
+  wl_tx = m.x - k * (m.x - t0x);
+  wl_ty = m.y - k * (m.y - t0y);
+  wl_scale = s1;
+  wl_clampOffset();
+  wl_apply(useAnim);
+}
+
+// 手指按下：区分单指拖动与双指缩放，记录起始状态
+function wl_onTouchStart(e) {
+  wl_moved = false;
+  wl_tapStartTime = Date.now();
+
+  if (e.touches.length >= 2) {
+    // 双指：记录初始间距、当前倍数、两指中点（相对容器中心）
+    wl_mode = 'pinch';
+    wl_pinchDist = wl_dist(e.touches[0], e.touches[1]);
+    wl_pinchScale = wl_scale;
+    wl_pinchTx = wl_tx;
+    wl_pinchTy = wl_ty;
+    var rect = wl_viewer.getBoundingClientRect();
+    wl_pinchMid = {
+      x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - (rect.left + rect.width / 2),
+      y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - (rect.top + rect.height / 2)
+    };
+    wl_img.classList.remove('wl_anim');
+  } else {
+    // 单指：记录起点与当前位移
+    wl_mode = 'drag';
+    wl_dragX = e.touches[0].clientX;
+    wl_dragY = e.touches[0].clientY;
+    wl_dragTx = wl_tx;
+    wl_dragTy = wl_ty;
+  }
+}
+
+// 手指移动：双指算缩放比例，单指且已放大时平移图片
+function wl_onTouchMove(e) {
+  // 只要接管了手势，就阻止浏览器默认的页面缩放 / 滚动
+  if (e.cancelable) e.preventDefault();
+
+  if (wl_mode === 'pinch' && e.touches.length >= 2) {
+    var d = wl_dist(e.touches[0], e.touches[1]);
+    if (wl_pinchDist <= 0) return;
+
+    // 按两指距离比例算新倍数，并限制在 1~4 倍
+    var next = wl_clamp(wl_pinchScale * (d / wl_pinchDist), wl_MIN_SCALE, wl_MAX_SCALE);
+    // 以两指中点 + 按下时的位移为基准换算，避免图片“跳走”
+    var k = next / wl_pinchScale;
+    wl_scale = next;
+    wl_tx = wl_pinchMid.x - k * (wl_pinchMid.x - wl_pinchTx);
+    wl_ty = wl_pinchMid.y - k * (wl_pinchMid.y - wl_pinchTy);
+    wl_clampOffset();
+    wl_apply(false);
+    wl_moved = true;
+    return;
+  }
+
+  if (wl_mode === 'drag' && e.touches.length === 1) {
+    var dx = e.touches[0].clientX - wl_dragX;
+    var dy = e.touches[0].clientY - wl_dragY;
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) wl_moved = true;
+
+    // 1 倍时不允许拖动：可拖范围为 0，位移会被夹成 0
+    wl_tx = wl_dragTx + dx;
+    wl_ty = wl_dragTy + dy;
+    wl_clampOffset();
+    wl_apply(false);
+  }
+}
+
+// 手指抬起：判断轻点/双击，并在双指结束后校正回合法范围
+function wl_onTouchEnd(e) {
+  var wasMode = wl_mode;
+
+  // 双指松开时若倍数小于 1.05，回弹到 1 倍并居中
+  if (wasMode === 'pinch' && wl_scale < 1.05) {
+    wl_scale = 1;
+    wl_tx = 0;
+    wl_ty = 0;
+    wl_apply(true);
+  }
+
+  // 还有手指没抬完：双指变单指时，把剩下那根手指当作拖动起点，手势不中断
+  if (e.touches.length > 0) {
+    if (wasMode === 'pinch' && e.touches.length === 1) {
+      wl_mode = 'drag';
+      wl_dragX = e.touches[0].clientX;
+      wl_dragY = e.touches[0].clientY;
+      wl_dragTx = wl_tx;
+      wl_dragTy = wl_ty;
+      wl_moved = true;
+    }
+    return;
+  }
+  wl_mode = '';
+
+  // 只有「快速轻点且没有移动」才算一次 tap，用来判断双击
+  var isTap = !wl_moved && (Date.now() - wl_tapStartTime) < 250;
+  if (!isTap) return;
+
+  var now = Date.now();
+  var t = e.changedTouches[0];
+  var rect = wl_viewer.getBoundingClientRect();
+  var p = {
+    x: t.clientX - (rect.left + rect.width / 2),
+    y: t.clientY - (rect.top + rect.height / 2)
+  };
+
+  // 两次轻点间隔小于 300ms 且位置接近 → 双击
+  if (now - wl_lastTapTime < 300 &&
+      Math.abs(p.x - wl_lastTapX) < 40 && Math.abs(p.y - wl_lastTapY) < 40) {
+    wl_lastTapTime = 0;   // 重置，避免三击被识别成两次双击
+
+    if (wl_scale > 1.05) {
+      // 已放大 → 回到 1 倍并居中
+      wl_scale = 1;
+      wl_tx = 0;
+      wl_ty = 0;
+      wl_apply(true);
+    } else {
+      // 1 倍 → 以点击点为中心放大到 2 倍（带 0.25s 过渡）
+      wl_zoomAt(p, wl_DOUBLE_SCALE, 0, 0, 1, true);
+    }
+  } else {
+    wl_lastTapTime = now;
+    wl_lastTapX = p.x;
+    wl_lastTapY = p.y;
+  }
+}
+
+// 系统打断（来电、通知）时清理手势状态，避免回来之后卡住
+function wl_onTouchCancel() {
+  wl_mode = '';
+  if (wl_scale < wl_MIN_SCALE) wl_scale = wl_MIN_SCALE;
+  wl_clampOffset();
+  wl_apply(true);
+}
+
+// 窗口尺寸或横竖屏变化：重新算 1 倍尺寸与可拖范围，缩放倍数保持不变
+function wl_onResize() {
+  wl_fitSize();
+  wl_clampOffset();
+  wl_apply(false);
+}
+
+// 初始化：图片加载完成后计算尺寸、绑定事件、淡出提示
+function wl_init() {
+  wl_fitSize();
+  wl_apply(false);
+
+  wl_viewer.addEventListener('touchstart', wl_onTouchStart, { passive: true });
+  wl_viewer.addEventListener('touchmove', wl_onTouchMove, { passive: false });
+  wl_viewer.addEventListener('touchend', wl_onTouchEnd, { passive: true });
+  wl_viewer.addEventListener('touchcancel', wl_onTouchCancel, { passive: true });
+
+  // 旋转屏幕 / 改变窗口大小时保持状态
+  window.addEventListener('resize', wl_onResize);
+  window.addEventListener('orientationchange', function () {
+    setTimeout(wl_onResize, 120);   // 旋转后尺寸要等一会儿才稳定
+  });
+
+  // 打开时的提示，2.5 秒后自动淡出
+  setTimeout(function () {
+    document.getElementById('wlHintMask').classList.add('wl_hide');
+  }, 2500);
+}
+
+// 图片可能还没加载完，onload 后再算一次尺寸
+wl_img.addEventListener('load', wl_onResize);
+wl_init();
+</script>
+</body>
+</html>
